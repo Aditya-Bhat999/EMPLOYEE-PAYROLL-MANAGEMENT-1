@@ -23,10 +23,11 @@ employeeForm.addEventListener('submit', (e) => {
     const id = document.getElementById('employee-id').value;
     const name = document.getElementById('employee-name').value;
     const role = document.getElementById('employee-role').value;
+    const salary = document.getElementById('employee-salary').value;
 
-    set(ref(database, 'employees/' + id), { id, name, role })
+    set(ref(database, 'employees/' + id), { id, name, role, salary })
         .then(() => employeeForm.reset())
-        .catch(err => alert("Check Firebase Rules: " + err.message));
+        .catch(err => alert("Error: " + err.message));
 });
 
 // 2. READ DATA (Live Sync)
@@ -36,10 +37,10 @@ onValue(ref(database, 'employees'), (snapshot) => {
         const emp = child.val();
         const li = document.createElement('li');
         li.innerHTML = `
-            <span><strong>${emp.id}</strong> - ${emp.name} (${emp.role})</span>
+            <a href="employee.html?id=${emp.id}" class="employee-link">${emp.id} - ${emp.name} (${emp.role})</a>
             <div>
-                <button class="edit-btn" data-id="${emp.id}">Edit</button>
-                <button class="remove-btn" data-id="${emp.id}">Delete</button>
+                <button onclick="editEmployee('${emp.id}')">Edit</button>
+                <button onclick="removeEmployee('${emp.id}')">Remove</button>
             </div>
         `;
         listElement.appendChild(li);
@@ -52,20 +53,36 @@ listElement.addEventListener('click', (e) => {
     if (!id) return;
 
     if (e.target.classList.contains('remove-btn')) {
-        remove(ref(database, 'employees/' + id));
+        if(confirm("Delete this employee?")) {
+            remove(ref(database, 'employees/' + id));
+        }
     } 
     
     if (e.target.classList.contains('edit-btn')) {
-        // Find the data from the list to populate the form
-        const rowText = e.target.closest('li').querySelector('span').innerText;
-        // Simple way to refill form:
-        const [idPart, rest] = rowText.split(' - ');
-        const [namePart, rolePart] = rest.split(' (');
-        
-        document.getElementById('employee-id').value = idPart;
-        document.getElementById('employee-name').value = namePart;
-        document.getElementById('employee-role').value = rolePart.replace(')', '');
-        
-        // Data stays in DB until they "Add" again to overwrite or delete manually
+        onValue(ref(database, 'employees/' + id), (snapshot) => {
+            const emp = snapshot.val();
+            document.getElementById('employee-id').value = emp.id;
+            document.getElementById('employee-name').value = emp.name;
+            document.getElementById('employee-role').value = emp.role;
+            document.getElementById('employee-salary').value = emp.salary || '';
+        }, { onlyOnce: true });
     }
 });
+
+// Render employee list
+function renderEmployees() {
+    listElement.innerHTML = '';
+    employees.forEach((employee) => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <a href="employee.html?id=${employee.id}" class="employee-link">${employee.id} - ${employee.name} (${employee.role}) - Salary: ${employee.salary}</a><br><br>
+            <div>
+<br>
+                <button onclick="editEmployee('${employee.id}')">Edit</button>
+                <button onclick="removeEmployee('${employee.id}')">Remove</button>
+            </div>
+        `;
+        listElement.appendChild(li);
+    });
+}
+
